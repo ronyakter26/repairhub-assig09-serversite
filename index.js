@@ -64,6 +64,98 @@ export async function verifyToken(req, res, next) {
     });
   }
 }
+
+export function requireRole(...allowedRoles) {
+  return async (req, res, next) => {
+    try {
+      const user = await client.db().collection("user").findOne({
+        id: req.user.sub,
+      });
+
+      if (!user) {
+        return res.status(401).json({
+          message: "User not found.",
+        });
+      }
+
+      if (!allowedRoles.includes(user.role)) {
+        return res.status(403).json({
+          message: "Access denied: Insufficient permissions.",
+        });
+      }
+
+      req.authUser = user;
+      next();
+    } catch (error) {
+      console.error("Role verification failed:", error);
+
+      return res.status(500).json({
+        message: "Role verification failed.",
+      });
+    }
+  };
+}
+
+
+app.post(
+  "/api/services",
+  verifyToken,
+  requireRole("technician"),
+  async (req, res) => {  try {
+    const {
+      title,
+      category,
+      description,
+      startingPrice,
+      serviceMode,
+      image,
+    } = req.body;
+
+    if (
+      !title ||
+      !category ||
+      !description ||
+      !startingPrice ||
+      !serviceMode ||
+      !image
+    ) {
+      return res.status(400).json({
+        message: "All service fields are required.",
+      });
+    }
+
+    const db = client.db();
+
+    const user = req.authUser;
+
+    const newService = {
+      title,
+      category,
+      description,
+      startingPrice: Number(startingPrice),
+      serviceMode,
+      image,
+      technicianId: req.user.sub,
+      technicianName: user.name,
+      status: "pending",
+      createdAt: new Date(),
+    };
+
+    const result = await db.collection("services").insertOne(newService);
+
+    res.status(201).json({
+      message: "Service submitted successfully!",
+      serviceId: result.insertedId,
+    });
+  } catch (error) {
+    console.error("Add service error:", error);
+
+    res.status(500).json({
+      message: "Failed to add service.",
+    });
+  }
+});
+
 app.get("/api/protected", verifyToken, (req, res) => {
   res.status(200).json({
     message: "JWT verification successful!",
