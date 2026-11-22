@@ -156,6 +156,45 @@ app.post(
   }
 });
 
+app.get(
+  "/api/my-services",
+  verifyToken,
+  requireRole("technician"),
+  async (req, res) => {
+    try {
+      const db = client.db();
+
+      const filter = {
+        technicianId: req.user.sub,
+      };
+
+      const { status } = req.query;
+
+      if (status && status !== "all") {
+        filter.status = status;
+      }
+
+      const services = await db
+        .collection("services")
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      res.status(200).json({
+        message: "Services fetched successfully!",
+        services,
+      });
+    } catch (error) {
+      console.error("Get my services error:", error);
+
+      res.status(500).json({
+        message: "Failed to fetch services.",
+      });
+    }
+  }
+);
+
+
 app.get("/api/protected", verifyToken, (req, res) => {
   res.status(200).json({
     message: "JWT verification successful!",
