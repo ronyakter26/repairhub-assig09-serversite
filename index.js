@@ -64,7 +64,22 @@ export async function verifyToken(req, res, next) {
     });
   }
 }
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.get("/api/protected", verifyToken, (req, res) => {
+  res.status(200).json({
+    message: "JWT verification successful!",
+    user: req.user,
+  });
 });
+async function startServer() {
+  try {
+    await connectToMongoDB();
+
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Server startup failed:", error);
+  }
+}
+
+startServer();
