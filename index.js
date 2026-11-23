@@ -273,6 +273,7 @@ app.post(
         serviceArea,
         image,
       } = req.body;
+      console.log("ADD SERVICE BODY:", req.body);
 
       if (
         !title?.trim() ||
