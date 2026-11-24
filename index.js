@@ -31,6 +31,18 @@ app.use(
     credentials: true,
   })
 );
+// Connect to MongoDB before handling requests
+app.use(async (req, res, next) => {
+  try {
+    await connectToMongoDB();
+    next();
+  } catch (error) {
+    console.error("MongoDB connection failed:", error);
+    res.status(500).json({
+      message: "Database connection failed.",
+    });
+  }
+});
 
 // Stripe webhook must receive the raw body
 app.post(
@@ -83,9 +95,14 @@ app.use((req, res, next) => {
 
 const db = () => client.db();
 
+let mongoConnectionPromise;
+
 export async function connectToMongoDB() {
-  await client.connect();
-  console.log("You successfully connected to MongoDB!");
+  if (!mongoConnectionPromise) {
+    mongoConnectionPromise = client.connect();
+  }
+
+  await mongoConnectionPromise;
   return client;
 }
 
@@ -1159,6 +1176,31 @@ app.patch(
   }
 );
 
+// Admin: get all services
+app.get(
+  "/api/admin/services",
+  verifyToken,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const services = await db()
+        .collection("services")
+        .find({})
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      return res.json({ services });
+    } catch (error) {
+      console.error("Admin services fetch error:", error);
+
+      return res.status(500).json({
+        message: "Failed to fetch services.",
+      });
+    }
+  }
+);
+
+
 // Admin: approve or reject service
 app.patch(
   "/api/admin/services/:id/approval",
@@ -1324,28 +1366,19 @@ app.get(
   }
 );
 
-// Start server
-async function startServer() {
-  try {
-    if (!process.env.MONGO_URI) {
-      throw new Error("MONGO_URI is missing in .env");
-    }
+// Vercel serverless export
+export default app;
 
-    await connectToMongoDB();
-
-    app.listen(PORT, () => {
-      console.log("FIXMATE BACKEND FILE IS RUNNING");
-      console.log(`Server is running on port ${PORT}`);
-      console.log(
-        stripe
-          ? "Stripe configuration detected."
-          : "Stripe keys not configured yet."
-      );
+// Local development server
+if (process.env.NODE_ENV !== "production") {
+  connectToMongoDB()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log("FIXMATE BACKEND FILE IS RUNNING");
+        console.log(`Server is running on port ${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.error("Server startup failed:", error);
     });
-  } catch (error) {
-    console.error("Server startup failed:", error);
-    process.exit(1);
-  }
 }
-
-startServer();
