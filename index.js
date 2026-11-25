@@ -1118,7 +1118,8 @@ app.get(
   phone: 1,
   role: 1,
   image: 1,
-})        .toArray();
+})       .toArray();
+console.log("ADMIN USERS DATA:", users);
 
       return res.json({ users });
     } catch (error) {
@@ -1306,6 +1307,40 @@ app.get(
     }
   }
 );
+
+// Admin: dashboard statistics
+app.get(
+  "/api/admin/stats",
+  verifyToken,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const database = db();
+
+      const [totalUsers, totalServices, totalBookings, totalTransactions] =
+        await Promise.all([
+          database.collection("users").countDocuments(),
+          database.collection("services").countDocuments(),
+          database.collection("bookings").countDocuments(),
+          database.collection("payments").countDocuments(),
+        ]);
+
+      return res.json({
+        totalUsers,
+        totalServices,
+        totalBookings,
+        totalTransactions,
+      });
+    } catch (error) {
+      console.error("Admin statistics error:", error);
+
+      return res.status(500).json({
+        message: "Failed to fetch dashboard statistics.",
+      });
+    }
+  }
+);
+
 
 // Update user profile
 app.patch(
