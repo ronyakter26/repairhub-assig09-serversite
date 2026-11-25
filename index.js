@@ -5,6 +5,9 @@ import Stripe from "stripe";
 import { MongoClient, ObjectId } from "mongodb";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import "dotenv/config";
+import dns from "node:dns";
+
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
 const PORT = process.env.PORT || 5000;
 const app = express();
@@ -93,8 +96,7 @@ app.use((req, res, next) => {
   next();
 });
 
-const db = () => client.db();
-
+const db = () => client.db("test");
 let mongoConnectionPromise;
 
 export async function connectToMongoDB() {
@@ -103,7 +105,9 @@ export async function connectToMongoDB() {
   }
 
   await mongoConnectionPromise;
-  return client;
+
+console.log("Connected Database:", client.db("test").databaseName);
+return client;
 }
 
 // Authentication
@@ -1108,13 +1112,13 @@ app.get(
       const users = await db()
         .collection("users")
         .find({})
-        .project({
-          name: 1,
-          email: 1,
-          role: 1,
-          image: 1,
-        })
-        .toArray();
+.project({
+  name: 1,
+  email: 1,
+  phone: 1,
+  role: 1,
+  image: 1,
+})        .toArray();
 
       return res.json({ users });
     } catch (error) {
@@ -1175,6 +1179,10 @@ app.patch(
     }
   }
 );
+console.log("ADMIN SERVICES ROUTE REGISTERING");
+app.get("/test-admin", (req, res) => {
+  res.json({ message: "Admin test route working!" });
+});
 
 // Admin: get all services
 app.get(
@@ -1251,6 +1259,7 @@ app.patch(
     }
   }
 );
+
 
 // Admin: all bookings
 app.get(
@@ -1368,6 +1377,12 @@ app.get(
 
 // Vercel serverless export
 export default app;
+console.log(
+  "REGISTERED ROUTES:",
+  app.router.stack
+    .filter((layer) => layer.route)
+    .map((layer) => layer.route.path)
+);
 
 // Local development server
 if (process.env.NODE_ENV !== "production") {
