@@ -568,9 +568,24 @@ app.get("/api/services", async (req, res) => {
       });
     }
 
-    if (category !== "all") {
-      filter.$and.push({ category });
-    }
+    const categoryMap = {
+  "Mobile & Gadgets": ["Mobile & Gadgets", "Smartphone"],
+  "Computer & Laptop": ["Computer & Laptop", "Laptop & PC"],
+  "Home Appliances": [
+    "Home Appliances",
+    "Air Conditioner",
+    "Refrigerator",
+    "Washing Machine",
+  ],
+  Electronics: ["Electronics", "Television", "Electrical"],
+};
+console.log("Selected category:", category);
+
+if (category !== "all") {
+  filter.$and.push({
+    category: { $in: categoryMap[category] || [category] },
+  });
+}
 
     let sortOption = { createdAt: -1 };
 
@@ -1307,6 +1322,12 @@ app.get(
     }
   }
 );
+app.use((req, res, next) => {
+  if (req.path === "/api/admin/stats") {
+    console.log("STATS REQUEST REACHED:", req.method, req.path);
+  }
+  next();
+});
 
 // Admin: dashboard statistics
 app.get(
@@ -1424,9 +1445,16 @@ if (process.env.NODE_ENV !== "production") {
   connectToMongoDB()
     .then(() => {
       app.listen(PORT, () => {
-        console.log("FIXMATE BACKEND FILE IS RUNNING");
-        console.log(`Server is running on port ${PORT}`);
-      });
+  console.log("FIXMATE BACKEND FILE IS RUNNING");
+  console.log(`Server is running on port ${PORT}`);
+
+  console.log(
+    "REGISTERED ROUTES:",
+    app.router.stack
+      .filter((layer) => layer.route)
+      .map((layer) => layer.route.path)
+  );
+});
     })
     .catch((error) => {
       console.error("Server startup failed:", error);
