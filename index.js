@@ -224,6 +224,9 @@ async function markBookingPaid(session) {
   if (session.payment_status !== "paid") {
     throw new Error("Payment is not completed.");
   }
+  if (session.currency !== "bdt") {
+  throw new Error("Payment currency does not match BDT.");
+}
 
   if (
     Math.round(Number(booking.finalAmount) * 100) !==
@@ -243,7 +246,7 @@ async function markBookingPaid(session) {
         technicianName: booking.technicianName,
         technicianEmail: booking.technicianEmail,
         amount: Number(booking.finalAmount),
-        currency: "usd",
+currency: "bdt",
         transactionId: session.payment_intent,
         stripeSessionId: session.id,
         paymentStatus: "paid",
@@ -1005,7 +1008,7 @@ app.post(
         line_items: [
           {
             price_data: {
-              currency: "usd",
+currency: "bdt",
               product_data: {
                 name: booking.serviceTitle,
                 description: "FixMate repair service",
@@ -1036,11 +1039,15 @@ app.post(
         sessionId: session.id,
       });
     } catch (error) {
-      console.error("Stripe checkout error:", error);
-      return res.status(500).json({
-        message: "Failed to create checkout session.",
-      });
-    }
+  console.error("Stripe checkout error:", error);
+
+  return res.status(500).json({
+    message:
+      process.env.NODE_ENV === "production"
+        ? "Failed to create checkout session."
+        : error.message || "Unknown Stripe error.",
+  });
+}
   }
 );
 
@@ -1108,12 +1115,16 @@ app.post(
         message: "Payment verified successfully.",
         paymentStatus: "paid",
       });
-    } catch (error) {
-      console.error("Payment verification error:", error);
-      return res.status(500).json({
-        message: "Payment verification failed.",
-      });
-    }
+  } catch (error) {
+  console.error("Stripe checkout error:", error);
+
+  return res.status(500).json({
+    message:
+      process.env.NODE_ENV === "production"
+        ? "Failed to create checkout session."
+        : error.message || "Unknown Stripe error.",
+  });
+}
   }
 );
 
