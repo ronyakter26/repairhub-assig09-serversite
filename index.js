@@ -270,7 +270,31 @@ currency: "bdt",
     }
   );
 }
+// Customer Payment History
+console.log("CUSTOMER PAYMENT ROUTE REGISTERED");
+app.get(
+  "/api/payments/my-payments",
+  verifyToken,
+  requireRole("customer"),
+  async (req, res) => {
+    try {
+      const payments = await db()
+        .collection("payments")
+        .find({
+          customerEmail: req.authUser.email,
+        })
+        .sort({ paidAt: -1 })
+        .toArray();
 
+      return res.json({ payments });
+    } catch (error) {
+      console.error("Customer payments error:", error);
+      return res.status(500).json({
+        message: "Failed to fetch payment history.",
+      });
+    }
+  }
+);
 // Health
 app.get("/", (req, res) => {
   res.json({ message: "FixMate Backend is running!" });
@@ -951,6 +975,10 @@ app.patch(
 // Stripe Checkout - Customer
 app.post(
   "/api/payments/create-checkout-session",
+  (req, res, next) => {
+  console.log("CHECKOUT REQUEST RECEIVED");
+  next();
+},
   verifyToken,
   requireRole("customer"),
   async (req, res) => {
@@ -1003,7 +1031,7 @@ app.post(
 
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
-        payment_method_types: ["card"],
+allowed_payment_method_types: ["card"],
         customer_email: req.authUser.email,
         line_items: [
           {
@@ -1038,16 +1066,16 @@ currency: "bdt",
         url: session.url,
         sessionId: session.id,
       });
-    } catch (error) {
-  console.error("Stripe checkout error:", error);
+        } catch (error) {
+      console.error("Stripe checkout error:", error);
 
-  return res.status(500).json({
-    message:
-      process.env.NODE_ENV === "production"
-        ? "Failed to create checkout session."
-        : error.message || "Unknown Stripe error.",
-  });
-}
+      return res.status(500).json({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unknown Stripe checkout error.",
+      });
+    }
   }
 );
 
